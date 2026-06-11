@@ -1,24 +1,12 @@
 from idlelib import query
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler, MessageHandler, filters
 
 from gpt import ChatGptService
 from util import (load_message, send_text, send_image, show_main_menu,
                   default_callback_handler, load_prompt, send_text_buttons)
 import credentials
-
-
-# ### 1. *"Випадковий факт"*
-# Телеграм-бот повинен обробляти команду /random.
-# При обробці команди він надсилає заздалегідь підготовлене зображення
-# та робить запит до ChatGPT із заздалегідь підготовленим промптом.
-# Відповідь ChatGPT потрібно отримати та передати користувачеві.
-# До повідомлення має бути прикріплена кнопка "Закінчити", натискання на яку
-# працює так само, як команда /start.
-# І кнопка "Хочу ще факт", натискання на яку
-# працює так само, як команда /random
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = load_message('main')
@@ -39,7 +27,6 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_image(update, context, 'random')
     prompt = load_prompt('random')
     response = await chat_gpt.send_question(prompt, 'Давай рандомний факт')
-    # await send_text(update, context, response)
     await send_text_buttons(update, context, response, {
         'random_finish': 'Закінчити',
         'random_one_more' : 'Хочу ще факт'
@@ -53,6 +40,32 @@ async def random_buttons_handler(update: Update, context ):
     await update.callback_query.answer()
 
 
+async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await send_image(update, context, 'gpt')
+    prompt = load_prompt('gpt')
+    message = load_message('gpt')
+    await send_text(update, context, message)
+    user_text = update.message.text
+    response = await chat_gpt.send_question(prompt, user_text)
+    await send_text(update, context, response)
+
+
+
+
+
+
+
+
+
+    # ### 2. *"ChatGPT інтерфейс"*
+    # Телеграм-бот повинен обробляти команду /gpt.
+    # При обробці команди він надсилає заздалегідь підготовлене зображення
+    # та робить запит до ChatGPT, передаючи йому
+    # текст отриманого повідомлення. Відповідь ChatGPT потрібно отримати та
+    # передати користувачеві текстовим повідомленням
+
+
+
 chat_gpt = ChatGptService(credentials.ChatGPT_TOKEN)
 app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 
@@ -60,6 +73,8 @@ app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 # app.add_handler(CommandHandler('command', handler_func))
 app.add_handler(CommandHandler('start', start))
 app.add_handler(CommandHandler('random', random))
+app.add_handler(CommandHandler('gpt', gpt))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, gpt))
 
 # Зареєструвати обробник колбеку можна так:
 app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*'))
