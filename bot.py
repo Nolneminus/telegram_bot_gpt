@@ -24,9 +24,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
 
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_image(update, context, 'random')
+    await send_text(update, context, load_message('random'))
     prompt = load_prompt('random')
     response = await chat_gpt.send_question(prompt, 'Давай рандомний факт')
+    await send_image(update, context, 'random')
     await send_text_buttons(update, context, response, {
         'random_finish': 'Закінчити',
         'random_one_more' : 'Хочу ще факт'
