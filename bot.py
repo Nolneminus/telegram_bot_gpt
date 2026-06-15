@@ -8,6 +8,7 @@ from util import (load_message, send_text, send_image, show_main_menu,
                   default_callback_handler, load_prompt, send_text_buttons)
 import credentials
 
+chat_modes = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = load_message('main')
     await send_image(update, context, 'main')
@@ -40,15 +41,41 @@ async def random_buttons_handler(update: Update, context ):
         await random(update,context)
     await update.callback_query.answer()
 
+async def gpt_buttons_handler(update: Update, context ):
+    query = update.callback_query.data
+    if query == 'gpt_finish':
+        chat_modes[update.callback_query.from_user.id] = None
+        await start(update, context)
+
+    await update.callback_query.answer()
+
 
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_modes[update.message.from_user.id] = 'GPT_MODE'
     await send_image(update, context, 'gpt')
-    prompt = load_prompt('gpt')
-    message = load_message('gpt')
-    await send_text(update, context, message)
-    user_text = update.message.text
-    response = await chat_gpt.send_question(prompt, user_text)
-    await send_text(update, context, response)
+    await send_text(update, context, load_message('gpt'))
+
+async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mode = chat_modes.get(update.message.from_user.id)
+    text = update.message.text
+    if mode is None:
+        if text == '/start':
+            await start(update,context)
+        elif text == '/random':
+            await random(update,context)
+        elif text == '/gpt':
+            await gpt(update,context)
+        else:
+            await send_text(update,context,'i dont know such command. Use /start command for information')
+    elif mode == 'GPT_MODE':
+        pt = load_prompt('gpt')
+        response = await chat_gpt.send_question(pt, update.message.text)
+        # await send_text(update,context, response)
+        # chat_modes[update.message.from_user.id] = None
+        await send_text_buttons(update, context, response, {
+            'gpt_finish': 'Закінчити',
+        })
+
 
 
 
@@ -72,12 +99,13 @@ app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 
 # Зареєструвати обробник команди можна так:
 # app.add_handler(CommandHandler('command', handler_func))
-app.add_handler(CommandHandler('start', start))
-app.add_handler(CommandHandler('random', random))
-app.add_handler(CommandHandler('gpt', gpt))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, gpt))
+app.add_handler(MessageHandler(None, plain_text_handler))
+# app.add_handler(CommandHandler('start', start))
+# app.add_handler(CommandHandler('random', random))
+# app.add_handler(CommandHandler('gpt', gpt))
 
 # Зареєструвати обробник колбеку можна так:
 app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*'))
+app.add_handler(CallbackQueryHandler(gpt_buttons_handler, pattern='^gpt_.*'))
 app.add_handler(CallbackQueryHandler(default_callback_handler))
 app.run_polling()
