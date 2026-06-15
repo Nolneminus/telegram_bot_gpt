@@ -9,6 +9,8 @@ from util import (load_message, send_text, send_image, show_main_menu,
 import credentials
 
 chat_modes = {}
+
+        # MAIN
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = load_message('main')
     await send_image(update, context, 'main')
@@ -24,6 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     })
 
+        # RANDOM
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_text(update, context, load_message('random'))
     prompt = load_prompt('random')
@@ -41,19 +44,21 @@ async def random_buttons_handler(update: Update, context ):
         await random(update,context)
     await update.callback_query.answer()
 
+        # GPT
+async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_modes[update.message.from_user.id] = 'GPT_MODE'
+    await send_image(update, context, 'gpt')
+    await send_text(update, context, load_message('gpt'))
+
 async def gpt_buttons_handler(update: Update, context ):
     query = update.callback_query.data
     if query == 'gpt_finish':
         chat_modes[update.callback_query.from_user.id] = None
         await start(update, context)
-
     await update.callback_query.answer()
 
 
-async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_modes[update.message.from_user.id] = 'GPT_MODE'
-    await send_image(update, context, 'gpt')
-    await send_text(update, context, load_message('gpt'))
+
 
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = chat_modes.get(update.message.from_user.id)
@@ -77,23 +82,6 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         })
 
 
-
-
-
-
-
-
-
-
-    # ### 2. *"ChatGPT інтерфейс"*
-    # Телеграм-бот повинен обробляти команду /gpt.
-    # При обробці команди він надсилає заздалегідь підготовлене зображення
-    # та робить запит до ChatGPT, передаючи йому
-    # текст отриманого повідомлення. Відповідь ChatGPT потрібно отримати та
-    # передати користувачеві текстовим повідомленням
-
-
-
 chat_gpt = ChatGptService(credentials.ChatGPT_TOKEN)
 app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 
@@ -101,8 +89,7 @@ app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 # app.add_handler(CommandHandler('command', handler_func))
 app.add_handler(MessageHandler(None, plain_text_handler))
 # app.add_handler(CommandHandler('start', start))
-# app.add_handler(CommandHandler('random', random))
-# app.add_handler(CommandHandler('gpt', gpt))
+
 
 # Зареєструвати обробник колбеку можна так:
 app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*'))
