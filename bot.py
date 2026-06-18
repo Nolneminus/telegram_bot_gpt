@@ -1,7 +1,7 @@
 from idlelib import query
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler, MessageHandler, filters, Application
 
 from gpt import ChatGptService
 from util import (load_message, send_text, send_image, show_main_menu,
@@ -9,6 +9,13 @@ from util import (load_message, send_text, send_image, show_main_menu,
 import credentials
 
 chat_modes = {}
+talk_persons = {
+    'talk_cobain': 'Курт Кобейн',
+    'talk_queen': 'Єлизавета II',
+    'talk_tolkien': 'Джон Толкін',
+    'talk_nietzsche': 'Фрідріх Ніцше',
+    'talk_hawking': 'Стівен Гокінг'
+}
 
         # MAIN
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,6 +64,33 @@ async def gpt_buttons_handler(update: Update, context ):
         await start(update, context)
     await update.callback_query.answer()
 
+    # TALK
+async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_modes[update.message.from_user.id] = 'TALK_MODE'
+    await send_image(update, context, "talk" )
+    await send_text_buttons(update, context, load_message('talk'),{
+        'talk_cobain': 'Курт Кобейн',
+        'talk_queen': 'Єлизавета II',
+        'talk_tolkien': 'Джон Толкін',
+        'talk_nietzsche': 'Фрідріх Ніцше',
+        'talk_hawking': 'Стівен Гокінг'
+    })
+async def talk_buttons_handler(update: Update, context):
+    query = update.callback_query.data
+    if query == query:
+        # chat_modes[update.callback_query.from_user.id] = f'TALK_MODE{query}'
+        await person(update, context, query)
+
+async def person(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str):
+    await send_image(update, context, name)
+
+
+# async def prom_talk(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str ):
+#     text = update.message.text
+#     pt = load_prompt(name)
+#     response = chat_gpt.send_question(pt, text)
+#     await send_text(update, context, response)
+
 
 
 
@@ -70,6 +104,8 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await random(update,context)
         elif text == '/gpt':
             await gpt(update,context)
+        elif text == '/talk':
+            await talk(update,context)
         else:
             await send_text(update,context,'i dont know such command. Use /start command for information')
     elif mode == 'GPT_MODE':
@@ -78,8 +114,19 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # await send_text(update,context, response)
         # chat_modes[update.message.from_user.id] = None
         await send_text_buttons(update, context, response, {
-            'gpt_finish': 'Закінчити',
+            'gpt_finish': 'Закінчити'
         })
+    elif mode == 'TALK_MODE':
+        pt = load_prompt('talk_cobain')
+        response = await chat_gpt.send_question(pt, update.message.text)
+        await send_text(update,context,response)
+
+
+
+
+
+
+
 
 
 chat_gpt = ChatGptService(credentials.ChatGPT_TOKEN)
@@ -94,5 +141,6 @@ app.add_handler(MessageHandler(None, plain_text_handler))
 # Зареєструвати обробник колбеку можна так:
 app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*'))
 app.add_handler(CallbackQueryHandler(gpt_buttons_handler, pattern='^gpt_.*'))
+app.add_handler(CallbackQueryHandler(talk_buttons_handler, pattern='^talk_.*'))
 app.add_handler(CallbackQueryHandler(default_callback_handler))
 app.run_polling()
