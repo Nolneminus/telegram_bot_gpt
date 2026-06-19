@@ -75,15 +75,16 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'talk_nietzsche': 'Фрідріх Ніцше',
         'talk_hawking': 'Стівен Гокінг'
     })
+
 async def talk_buttons_handler(update: Update, context):
     query = update.callback_query.data
-    if query == query:
-        await person(update,context,query)
+    if query == 'talk_finish':
+        chat_modes[update.callback_query.from_user.id] = None
+        await start(update, context)
+    if query != 'talk_finish':
         context.user_data['person'] = talk_persons[query]
+        await send_image(update,context,query)
     await update.callback_query.answer()
-
-async def person(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str):
-    await send_image(update, context, name)
 
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = chat_modes.get(update.message.from_user.id)
@@ -109,7 +110,9 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         person = context.user_data['person']
         pt = load_prompt(person)
         response = await chat_gpt.send_question(pt, update.message.text)
-        await send_text(update,context,response)
+        await send_text_buttons(update, context, response, {
+            'talk_finish': 'Закінчити'
+        })
 
 
 
