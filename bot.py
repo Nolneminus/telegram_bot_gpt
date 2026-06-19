@@ -9,13 +9,6 @@ from util import (load_message, send_text, send_image, show_main_menu,
 import credentials
 
 chat_modes = {}
-talk_persons = {
-    'talk_cobain': 'Курт Кобейн',
-    'talk_queen': 'Єлизавета II',
-    'talk_tolkien': 'Джон Толкін',
-    'talk_nietzsche': 'Фрідріх Ніцше',
-    'talk_hawking': 'Стівен Гокінг'
-}
 
         # MAIN
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,6 +58,13 @@ async def gpt_buttons_handler(update: Update, context ):
     await update.callback_query.answer()
 
     # TALK
+talk_persons = {
+    'talk_cobain': 'talk_cobain',
+    'talk_queen': 'talk_queen',
+    'talk_tolkien': 'talk_tolkien',
+    'talk_nietzsche': 'talk_nietzsche',
+    'talk_hawking': 'talk_hawking'
+}
 async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_modes[update.message.from_user.id] = 'TALK_MODE'
     await send_image(update, context, "talk" )
@@ -78,21 +78,12 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def talk_buttons_handler(update: Update, context):
     query = update.callback_query.data
     if query == query:
-        # chat_modes[update.callback_query.from_user.id] = f'TALK_MODE{query}'
-        await person(update, context, query)
+        await person(update,context,query)
+        context.user_data['person'] = talk_persons[query]
+    await update.callback_query.answer()
 
 async def person(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str):
     await send_image(update, context, name)
-
-
-# async def prom_talk(update: Update, context: ContextTypes.DEFAULT_TYPE, name: str ):
-#     text = update.message.text
-#     pt = load_prompt(name)
-#     response = chat_gpt.send_question(pt, text)
-#     await send_text(update, context, response)
-
-
-
 
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = chat_modes.get(update.message.from_user.id)
@@ -111,13 +102,12 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif mode == 'GPT_MODE':
         pt = load_prompt('gpt')
         response = await chat_gpt.send_question(pt, update.message.text)
-        # await send_text(update,context, response)
-        # chat_modes[update.message.from_user.id] = None
         await send_text_buttons(update, context, response, {
             'gpt_finish': 'Закінчити'
         })
     elif mode == 'TALK_MODE':
-        pt = load_prompt('talk_cobain')
+        person = context.user_data['person']
+        pt = load_prompt(person)
         response = await chat_gpt.send_question(pt, update.message.text)
         await send_text(update,context,response)
 
