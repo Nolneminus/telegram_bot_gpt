@@ -86,6 +86,31 @@ async def talk_buttons_handler(update: Update, context):
         await send_image(update,context,query)
     await update.callback_query.answer()
 
+
+quiz_scores = {}
+
+async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_modes[update.message.from_user.id] = 'QUIZ_MODE'
+    await send_image(update,context,'quiz')
+    await send_text_buttons(update, context, load_message('quiz'), buttons={
+        'quiz_prog': 'Програмування',
+        'quiz_math': 'Математичні теорії',
+        'quiz_biology': 'Біологія',
+        'quiz_more': 'питання на ту ж тему, що й попереднє'
+    }
+                            )
+    chat_gpt.set_prompt(load_prompt('quiz'))
+    quiz_scores[update.message.from_user.id] = 0
+
+async def quiz_buttons_handler(update: Update, context):
+    query = update.callback_query.data
+    response = await chat_gpt.add_message(query)
+    await send_text(update,context,response)
+    chat_modes[update.callback_query.from_user.id] = 'QUIZ_ANSWER'
+    await update.callback_query.answer()
+
+
+
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = chat_modes.get(update.message.from_user.id)
     text = update.message.text
@@ -98,6 +123,8 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await gpt(update,context)
         elif text == '/talk':
             await talk(update,context)
+        elif text == '/quiz':
+            await quiz(update,context)
         else:
             await send_text(update,context,'i dont know such command. Use /start command for information')
     elif mode == 'GPT_MODE':
@@ -113,6 +140,14 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await send_text_buttons(update, context, response, {
             'talk_finish': 'Закінчити'
         })
+    elif mode == 'QUIZ_ANSWER':
+        answer = await chat_gpt.add_message(text)
+        if answer == "Правильно!":
+            quiz_scores[update.message.from_user.id] +=1
+        await send_text(update,context,answer)
+        await send_text(update,context,f'Ваші бали {quiz_scores[update.message.from_user.id]}')
+        chat_modes[update.message.from_user.id] = 'QUIZ_MODE'
+
 
 
 
@@ -135,5 +170,6 @@ app.add_handler(MessageHandler(None, plain_text_handler))
 app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*'))
 app.add_handler(CallbackQueryHandler(gpt_buttons_handler, pattern='^gpt_.*'))
 app.add_handler(CallbackQueryHandler(talk_buttons_handler, pattern='^talk_.*'))
+app.add_handler(CallbackQueryHandler(quiz_buttons_handler, pattern='^quiz_.*'))
 app.add_handler(CallbackQueryHandler(default_callback_handler))
 app.run_polling()
