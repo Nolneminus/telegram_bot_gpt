@@ -86,7 +86,7 @@ async def talk_buttons_handler(update: Update, context):
         await send_image(update,context,query)
     await update.callback_query.answer()
 
-
+        # QUIZ
 quiz_scores = {}
 
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,7 +110,7 @@ async def quiz_buttons_handler(update: Update, context):
     await update.callback_query.answer()
 
 
-
+        # Обработчик
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = chat_modes.get(update.message.from_user.id)
     text = update.message.text
