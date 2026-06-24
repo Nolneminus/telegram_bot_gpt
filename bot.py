@@ -1,6 +1,7 @@
 from idlelib import query
 
 from openai.types.responses import response
+import base64
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler, MessageHandler, filters, Application
 
@@ -22,7 +23,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'gpt': 'Задати питання чату GPT 🤖',
         'talk': 'Поговорити з відомою особистістю 👤',
         'quiz': 'Взяти участь у квізі ❓',
-        'translate': 'Перекласти текст 🌍'
+        'translate': 'Перекласти текст 🌍',
+        'foto_recognition' : 'Розпізнання фото'
         # Додати команду в меню можна так:
         # 'command': 'button text'
 
@@ -114,7 +116,7 @@ async def quiz_buttons_handler(update: Update, context):
     chat_modes[update.callback_query.from_user.id] = 'QUIZ_ANSWER'
     await update.callback_query.answer()
 
-    # TRANSLATOR
+    # TRANSLATE
 languages = {
     'trans_eng': 'Англійська',
     'trans_esp': 'Іспанська',
@@ -146,6 +148,39 @@ async def translate_buttons_handler(update: Update, context):
     await update.callback_query.answer()
 
 
+    # FOTO_RECOGNITION
+async def foto_recognition(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_modes[update.message.from_user.id] = 'IMAGE_MODE'
+    await send_image(update,context, 'recognition')
+    await send_text(update, context, load_message('recognition'))
+
+async def photo_handler(update: Update, context):
+    mode = chat_modes.get(update.message.from_user.id)
+    if mode != 'IMAGE_MODE':
+        return
+    photo = update.message.photo[-1]
+    file = await photo.get_file()
+    await file.download_to_drive('image.jpg')
+    with open('image.jpg', 'rb') as f:
+        image_base64 = base64.b64encode(
+            f.read()
+        ).decode()
+    response = chat_gpt.describe_image(image_base64)
+    await send_text_buttons(update,context,response,buttons={
+        'foto_one_more': 'Додати ще фото',
+        'foto_finish': 'Закінчити'
+    })
+
+async def foto_buttons_handler(update: Update, context):
+        query = update.callback_query.data
+        if query == 'foto_finish':
+            chat_modes[update.callback_query.from_user.id] = None
+            await start(update, context)
+        if query != 'foto_finish':
+            await photo_handler(update,context)
+        await update.callback_query.answer()
+
+
 
         # Обработчик
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -164,6 +199,8 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await quiz(update,context)
         elif text == '/translate':
             await translate(update,context)
+        elif text == '/foto':
+            await foto_recognition(update, context)
         else:
             await send_text(update,context,'i dont know such command. Use /start command for information')
     elif mode == 'TRANSLATE_ANSWER':
@@ -208,6 +245,7 @@ app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 
 # Зареєструвати обробник команди можна так:
 # app.add_handler(CommandHandler('command', handler_func))
+app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
 app.add_handler(MessageHandler(None, plain_text_handler))
 # app.add_handler(CommandHandler('start', start))
 
@@ -218,5 +256,6 @@ app.add_handler(CallbackQueryHandler(gpt_buttons_handler, pattern='^gpt_.*'))
 app.add_handler(CallbackQueryHandler(talk_buttons_handler, pattern='^talk_.*'))
 app.add_handler(CallbackQueryHandler(quiz_buttons_handler, pattern='^quiz_.*'))
 app.add_handler(CallbackQueryHandler(translate_buttons_handler, pattern='^trans_.*'))
+app.add_handler(CallbackQueryHandler(foto_buttons_handler, pattern='^foto_.*'))
 app.add_handler(CallbackQueryHandler(default_callback_handler))
 app.run_polling()
