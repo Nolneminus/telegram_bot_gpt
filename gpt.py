@@ -51,7 +51,7 @@ class ChatGptService:
                     "content": [
                         {
                             "type": "text",
-                            "text": "Опиши изображение подробно"
+                            "text": "Опиши зображення докладно"
                         },
                         {
                             "type": "image_url",
