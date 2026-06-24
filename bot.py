@@ -106,6 +106,9 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def quiz_buttons_handler(update: Update, context):
     query = update.callback_query.data
+    if query == 'quiz_finish':
+        chat_modes[update.callback_query.from_user.id] = None
+        await start(update,context)
     response = await chat_gpt.add_message(query)
     await send_text(update,context,response)
     chat_modes[update.callback_query.from_user.id] = 'QUIZ_ANSWER'
@@ -189,7 +192,9 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if answer == "Правильно!":
             quiz_scores[update.message.from_user.id] +=1
         await send_text(update,context,answer)
-        await send_text(update,context,f'Ваші бали {quiz_scores[update.message.from_user.id]}')
+        await send_text_buttons(update,context, f'Ваші бали {quiz_scores[update.message.from_user.id]}', buttons={
+            'quiz_finish' : 'Закінчити'
+        })
         chat_modes[update.message.from_user.id] = 'QUIZ_MODE'
 
 
