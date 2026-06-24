@@ -1,5 +1,6 @@
 from idlelib import query
 
+from openai.types.responses import response
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, ContextTypes, CommandHandler, MessageHandler, filters, Application
 
@@ -20,7 +21,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'random': 'Дізнатися випадковий цікавий факт 🧠',
         'gpt': 'Задати питання чату GPT 🤖',
         'talk': 'Поговорити з відомою особистістю 👤',
-        'quiz': 'Взяти участь у квізі ❓'
+        'quiz': 'Взяти участь у квізі ❓',
+        'translate': 'Перекласти текст 🌍'
         # Додати команду в меню можна так:
         # 'command': 'button text'
 
@@ -109,6 +111,38 @@ async def quiz_buttons_handler(update: Update, context):
     chat_modes[update.callback_query.from_user.id] = 'QUIZ_ANSWER'
     await update.callback_query.answer()
 
+    # TRANSLATOR
+languages = {
+    'trans_eng': 'Англійська',
+    'trans_esp': 'Іспанська',
+    'trans_pol': 'Польська',
+    'trans_ger': 'Німецька'
+}
+user_language = {}
+async def translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await send_image(update,context, 'translate')
+    await send_text_buttons(update,context,load_message('translate'), buttons={
+        'trans_eng': 'Англійська',
+        'trans_esp': 'Іспанська',
+        'trans_pol': 'Польська',
+        'trans_ger': 'Німецька'
+    })
+
+async def translate_buttons_handler(update: Update, context):
+    query = update.callback_query.data
+    if query in languages:
+        user_language[update.callback_query.from_user.id] = languages[query]
+        chat_modes[update.callback_query.from_user.id] = 'TRANSLATE_ANSWER'
+        await send_text(update,context,f'Який текст треба перекласти на {languages[query]}')
+    elif query == 'trans_finish':
+        chat_modes[update.callback_query.from_user.id] = None
+        await start(update,context)
+    elif query == 'trans_any_lang':
+        chat_modes[update.callback_query.from_user.id] = 'TRANSLATE_ANSWER'
+        await translate(update,context)
+    await update.callback_query.answer()
+
+
 
         # Обработчик
 async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -125,8 +159,18 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await talk(update,context)
         elif text == '/quiz':
             await quiz(update,context)
+        elif text == '/translate':
+            await translate(update,context)
         else:
             await send_text(update,context,'i dont know such command. Use /start command for information')
+    elif mode == 'TRANSLATE_ANSWER':
+        lang = user_language.get(update.message.from_user.id)
+        pt = f'''Переклати наступний текст на {lang}. Поверни тільки переклад без пояснень'''
+        response = await chat_gpt.send_question(pt, update.message.text)
+        await send_text_buttons(update, context, response, {
+            'trans_any_lang': 'Інша мова',
+            'trans_finish': 'Закінчити'
+            })
     elif mode == 'GPT_MODE':
         pt = load_prompt('gpt')
         response = await chat_gpt.send_question(pt, update.message.text)
@@ -154,9 +198,6 @@ async def plain_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 
-
-
-
 chat_gpt = ChatGptService(credentials.ChatGPT_TOKEN)
 app = ApplicationBuilder().token(credentials.BOT_TOKEN).build()
 
@@ -171,5 +212,6 @@ app.add_handler(CallbackQueryHandler(random_buttons_handler, pattern='^random_.*
 app.add_handler(CallbackQueryHandler(gpt_buttons_handler, pattern='^gpt_.*'))
 app.add_handler(CallbackQueryHandler(talk_buttons_handler, pattern='^talk_.*'))
 app.add_handler(CallbackQueryHandler(quiz_buttons_handler, pattern='^quiz_.*'))
+app.add_handler(CallbackQueryHandler(translate_buttons_handler, pattern='^trans_.*'))
 app.add_handler(CallbackQueryHandler(default_callback_handler))
 app.run_polling()
