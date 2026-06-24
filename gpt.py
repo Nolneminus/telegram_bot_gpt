@@ -1,10 +1,14 @@
+
 from openai import OpenAI
 import httpx as httpx
+
+from pyexpat.errors import messages
 
 
 class ChatGptService:
     client: OpenAI = None
     message_list: list = None
+
 
     def __init__(self, token):
         token = "sk-proj-" + token[:3:-1] if token.startswith('gpt:') else token
@@ -37,3 +41,27 @@ class ChatGptService:
         self.message_list.append({"role": "system", "content": prompt_text})
         self.message_list.append({"role": "user", "content": message_text})
         return await self.send_message_list()
+
+    def describe_image(self, image_base64):
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Опиши изображение подробно"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+
+        return response.choices[0].message.content
